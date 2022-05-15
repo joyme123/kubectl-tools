@@ -5,28 +5,57 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
+	"github.com/joyme123/kubectl-tools/version"
 	"k8s.io/utils/path"
 )
 
 func init() {
-	ping := Tool{
-		Name:        "ping",
-		DownloadURL: "https://github.com/joyme123/kubectl-tools/releases/download/v0.1.0/tools.tar.gz",
+	version := version.Get()
+	downloadURL := fmt.Sprintf("https://github.com/joyme123/kubectl-tools/releases/download/%s/tools.tar.gz", version.Version)
+
+	tools := []Tool{
+		{
+			Name:        "arping",
+			DownloadURL: downloadURL,
+		},
+		{
+			Name:        "ping",
+			DownloadURL: downloadURL,
+		},
+		{
+			Name:        "ping6",
+			DownloadURL: downloadURL,
+		},
+		{
+			Name:        "tracepath",
+			DownloadURL: downloadURL,
+		},
+		{
+			Name:        "tracepath6",
+			DownloadURL: downloadURL,
+		},
+		{
+			Name:        "traceroute6",
+			DownloadURL: downloadURL,
+		},
 	}
 
-	AddToToolSet(ping)
+	AddToToolSet(tools)
 }
 
 var (
 	Set map[string]Tool
 )
 
-func AddToToolSet(t Tool) {
+func AddToToolSet(ts []Tool) {
 	if Set == nil {
 		Set = make(map[string]Tool)
 	}
-	Set[t.Name] = t
+	for i := range ts {
+		Set[ts[i].Name] = ts[i]
+	}
 }
 
 type Tool struct {
@@ -53,13 +82,16 @@ func GetLocalPath(t Tool) (string, error) {
 		return "", err
 	}
 
+	items := strings.Split(t.DownloadURL, "/")
+	fileName := items[len(items)-1]
+
 	// download file
 	resp, err := http.DefaultClient.Get(t.DownloadURL)
 	if err != nil {
 		return "", err
 	}
 
-	file, err := os.Create(fpath)
+	downloadFile, err := os.Create(fileName)
 	if err != nil {
 		return "", err
 	}
@@ -67,9 +99,22 @@ func GetLocalPath(t Tool) (string, error) {
 	if resp.StatusCode/100 > 2 {
 		return "", fmt.Errorf("download %s error with status code: %d", t.DownloadURL, resp.StatusCode)
 	}
-	_, err = io.Copy(file, resp.Body)
+	_, err = io.Copy(downloadFile, resp.Body)
 	if err != nil {
 		return "", err
 	}
+
+	if ShouldUnarchieve(fileName) {
+		if err := Unarchieve(fileName, dir); err != nil {
+			return "", fmt.Errorf("unarchieve failed: %v", err)
+		}
+	}
+
+	if exist, err := path.Exists(path.CheckFollowSymlink, fpath); err != nil {
+		return "", err
+	} else if !exist {
+		return "", fmt.Errorf("%s can't be found", t.Name)
+	}
+
 	return fpath, nil
 }

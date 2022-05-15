@@ -24,4 +24,4 @@ build:
 	.
 
 package-tools:
-	cd bin/tools && tar -czf ../../tools.tar.gz *
+	mkdir -p bin/tools && cd bin/tools && tar -czf ../../tools.tar.gz *
