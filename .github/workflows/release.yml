@@ -1,47 +1,99 @@
 name: "tagged-release"
 
+permissions: write-all
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 on:
   push:
     tags:
       - "v*"
 
 jobs:
-  tagged-release:
-    name: "Tagged Release"
-    runs-on: "ubuntu-latest"
-
+  
+  test:
+    runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+    - uses: actions/checkout@v2
 
-      - name: Set up Go
-        uses: actions/setup-go@v2
-        with:
-          go-version: 1.16
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
 
-      - name: Test
-        run: go test -v ./...
+    - name: cache
+      id: cache-test-go
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-test-go
+      with:
+        path: |
+          /home/runner/go
+          /home/runner/.cache/
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
 
-      - name: Build with xgo
-        uses: crazy-max/ghaction-xgo@v1
-        with:
-          xgo_version: latest
-          go_version: ${{ matrix.go_version }}
-          dest: build
-          prefix: kubectl-tools
-          targets: windows/386,windows/amd64,linux/386,linux/amd64,darwin/386,darwin/amd64
-          v: true
-          x: false
-          race: false
-          ldflags: -s -w
-          buildmode: default
+    - name: Test
+      run: go test -v ./...
 
-      - name: build tools
-        run: make iputils && make package-tools
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
 
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: false
-          files: |
-              build/kubectl-tools*
-              bin/tools/*
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+
+    - name: cache
+      id: cache-build-go
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-build-go
+      with:
+        path: |
+          /home/runner/go
+          /home/runner/.cache/
+        key: ${{ runner.os }}-gobuild-${{ env.cache-name }}-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+            ${{ runner.os }}-gobuild-${{ env.cache-name }}-
+            ${{ runner.os }}-gobuild-
+            ${{ runner.os }}-
+
+    - name: Build with xgo
+      uses: crazy-max/ghaction-xgo@v1
+      with:
+        xgo_version: latest
+        go_version: ${{ matrix.go_version }}
+        dest: build
+        prefix: kubectl-tools
+        targets: windows/386,windows/amd64,linux/386,linux/amd64,darwin/386,darwin/amd64
+        v: true
+        x: false
+        race: false
+        ldflags: -s -w
+        buildmode: default
+
+    - name: Log in to the Container registry
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: build tools
+      run: make iputils && make package-tools
+
+    - uses: "marvinpinto/action-automatic-releases@latest"
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        prerelease: false
+        files: |
+            build/kubectl-tools*
+            tools.tar.gz

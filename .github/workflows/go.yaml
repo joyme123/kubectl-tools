@@ -1,12 +1,45 @@
 name: Go
 
+permissions: write-all
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+    
+    - name: cache
+      id: cache-test-go
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-test-go
+      with:
+        path: |
+          /home/runner/go
+          /home/runner/.cache/
+        key: ${{ runner.os }}-test-${{ env.cache-name }}-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+            ${{ runner.os }}-test-${{ env.cache-name }}-
+            ${{ runner.os }}-test-
+            ${{ runner.os }}-
+
+    - name: Test
+      run: go test -v ./...
 
   build:
     runs-on: ubuntu-latest
@@ -18,8 +51,24 @@ jobs:
       with:
         go-version: 1.16
 
-    - name: Test
-      run: go test -v ./...
+    - name: go env
+      run: go env
+
+    - name: cache
+      id: cache-build-go
+      uses: actions/cache@v3
+      env:
+        cache-name: cache-build-go
+      with:
+        path: |
+          /home/runner/go
+          /home/runner/.cache/
+        key: ${{ runner.os }}-gobuild-${{ env.cache-name }}-${{ hashFiles('**/go.mod') }}
+        restore-keys: |
+            ${{ runner.os }}-gobuild-${{ env.cache-name }}-
+            ${{ runner.os }}-gobuild-
+            ${{ runner.os }}-
+
 
     - name: Build with xgo
       uses: crazy-max/ghaction-xgo@v1
@@ -35,6 +84,19 @@ jobs:
         ldflags: -s -w
         buildmode: default
 
+    - name: Log in to the Container registry
+      uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: build tools
+      run: make iputils && make package-tools
+
+    - name: list artifacts
+      run: tree build && ls tools.tar.gz
+
     - uses: "marvinpinto/action-automatic-releases@latest"
       with:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -43,3 +105,4 @@ jobs:
         title: "Development Build"
         files: |
             build/kubectl-tools*
+            tools.tar.gz

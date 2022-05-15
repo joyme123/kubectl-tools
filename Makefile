@@ -6,7 +6,7 @@ VERSION      = $(shell echo ${VERSION_TMP} | sed -e "s/\//-/g" )
 .PHONY: build
 
 iputils:
-	docker run -it --rm -v ${PWD}/bin/tools:/app ghcr.io/joyme123/gcc:4.9 sh -c \
+	mkdir -p bin/tools && docker run --rm -v ${PWD}/bin/tools:/app ghcr.io/joyme123/gcc:4.9 sh -c \
 	'git clone https://github.com/dgibson/iputils \
 	&& cd iputils && make LDFLAGS="-static -s" USE_GNUTLS="no" \
 	&& mv ping /app && mv ping6 /app && mv arping /app \

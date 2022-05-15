@@ -25,6 +25,8 @@ func Run(kube *KubeRequest, t tools.Tool, cmd []string) error {
 	exitCode, err := PodExecuteCommand(ExecCommandRequest{
 		KubeRequest: kube,
 		Command:     []string{"which", cmd[0]},
+		StdOut:      io.Discard,
+		StdErr:      io.Discard,
 	})
 	if err != nil {
 		return err
@@ -60,7 +62,7 @@ func Run(kube *KubeRequest, t tools.Tool, cmd []string) error {
 	if err != nil {
 		return fmt.Errorf("run command %s failed: %w", strings.Join(cmd, " "), err)
 	}
-	log.Info("exit with code: %d", exitCode)
+	log.Infof("exit with code: %d", exitCode)
 	return nil
 }
 

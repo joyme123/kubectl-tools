@@ -70,7 +70,7 @@ func GetLocalPath(t Tool) (string, error) {
 		return "", err
 	}
 
-	dir := home + ".kubetools/"
+	dir := home + "/.kubetools/"
 	fpath := dir + t.Name
 	if exist, err := path.Exists(path.CheckFollowSymlink, fpath); err != nil {
 		return "", err

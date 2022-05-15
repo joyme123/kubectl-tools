@@ -58,7 +58,7 @@ to quickly create a Cobra application.`,
 		}
 
 		if t, ok := tools.Set[args[0]]; !ok {
-			log.Warning("tool %s doesn't support now, you can create an issue or pull request on github.com/joyme123/kubectl-tools\n", args[0])
+			log.Warningf("tool %s doesn't support now, you can create an issue or pull request on github.com/joyme123/kubectl-tools\n", args[0])
 		} else {
 			kube, err := opts.ToKubeRequest()
 			if err != nil {
